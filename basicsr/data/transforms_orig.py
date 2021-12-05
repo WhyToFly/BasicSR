@@ -60,7 +60,7 @@ def paired_random_crop(img_gts, img_lqs, gt_patch_size, scale, gt_path=None):
         h_gt, w_gt = img_gts[0].shape[0:2]
     lq_patch_size = gt_patch_size // scale
 
-    if h_gt != h_lq * scale:
+    if h_gt != h_lq * scale or w_gt != w_lq * scale:
         raise ValueError(f'Scale mismatches. GT ({h_gt}, {w_gt}) is not {scale}x ',
                          f'multiplication of LQ ({h_lq}, {w_lq}).')
     if h_lq < lq_patch_size or w_lq < lq_patch_size:
@@ -79,11 +79,11 @@ def paired_random_crop(img_gts, img_lqs, gt_patch_size, scale, gt_path=None):
         img_lqs = [v[top:top + lq_patch_size, left:left + lq_patch_size, ...] for v in img_lqs]
 
     # crop corresponding gt patch
-    top_gt, left_gt = int(top * scale), int(left)
+    top_gt, left_gt = int(top * scale), int(left * scale)
     if input_type == 'Tensor':
-        img_gts = [v[:, :, top_gt:top_gt + gt_patch_size, left_gt:left_gt + gt_patch_size//scale] for v in img_gts]
+        img_gts = [v[:, :, top_gt:top_gt + gt_patch_size, left_gt:left_gt + gt_patch_size] for v in img_gts]
     else:
-        img_gts = [v[top_gt:top_gt + gt_patch_size, left_gt:left_gt + gt_patch_size//scale, ...] for v in img_gts]
+        img_gts = [v[top_gt:top_gt + gt_patch_size, left_gt:left_gt + gt_patch_size, ...] for v in img_gts]
     if len(img_gts) == 1:
         img_gts = img_gts[0]
     if len(img_lqs) == 1:

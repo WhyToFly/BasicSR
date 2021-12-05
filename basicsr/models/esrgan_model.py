@@ -21,7 +21,7 @@ class ESRGANModel(SRGANModel):
         loss_dict = OrderedDict()
         if (current_iter % self.net_d_iters == 0 and current_iter > self.net_d_init_iters):
             # pixel loss
-            if self.cri_pix:
+            if self.cri_pix:            
                 l_g_pix = self.cri_pix(self.output, self.gt)
                 l_g_total += l_g_pix
                 loss_dict['l_g_pix'] = l_g_pix

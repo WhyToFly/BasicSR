@@ -1,7 +1,12 @@
 import torch
+import numpy as np
 from collections import OrderedDict
 from os import path as osp
 from tqdm import tqdm
+
+import os
+import librosa
+import soundfile as sf
 
 from basicsr.archs import build_network
 from basicsr.losses import build_loss
@@ -163,9 +168,10 @@ class SRModel(BaseModel):
                 gt_img = tensor2img([visuals['gt']])
                 metric_data['img2'] = gt_img
                 del self.gt
+    
 
             # tentative for out of GPU memory
-            del self.lq
+            #del self.lq
             del self.output
             torch.cuda.empty_cache()
 
@@ -181,6 +187,28 @@ class SRModel(BaseModel):
                         save_img_path = osp.join(self.opt['path']['visualization'], dataset_name,
                                                  f'{img_name}_{self.opt["name"]}.png')
                 imwrite(sr_img, save_img_path)
+                
+                
+                # modified: also save np array
+                sr_array = visuals['result'].numpy()
+                np.save(save_img_path[:-4] + ".npz", sr_array)
+                
+                
+                # modified: also write input                
+                save_img_path = osp.join(self.opt['path']['visualization'], img_name,
+                                         f'{img_name}_input.png')
+                                         
+                imwrite(tensor2img(self.lq), save_img_path)
+                
+                
+                # modified: also write original                
+                save_img_path = osp.join(self.opt['path']['visualization'], img_name,
+                                         f'{img_name}_label.png')
+                                         
+                imwrite(gt_img, save_img_path)
+                # also save array; image is not exact enough
+                gt_array = visuals['gt'].numpy()
+                np.save(save_img_path[:-4] + ".npz", gt_array)
 
             if with_metrics:
                 # calculate metrics
@@ -189,6 +217,9 @@ class SRModel(BaseModel):
             if use_pbar:
                 pbar.update(1)
                 pbar.set_description(f'Test {img_name}')
+                
+        del self.lq        
+                
         if use_pbar:
             pbar.close()
 
@@ -199,6 +230,69 @@ class SRModel(BaseModel):
                 self._update_best_metric_result(dataset_name, metric, self.metric_results[metric], current_iter)
 
             self._log_validation_metric_values(current_iter, dataset_name, tb_logger)
+
+
+    # modified: added inference function from and to audio
+    def inference(self, lq_path, lq_filename):    
+        # load audio file
+        lq_wav, sr = librosa.load(os.path.join(lq_path, lq_filename), sr=None)
+    
+        lq_sr = 11025
+        hq_sr = 44100
+    
+        assert sr==lq_sr
+        
+        # create input mel
+        sr = lq_sr
+        n_fft=int(0.075 * sr)
+        hop_length = int(0.25 * n_fft)
+        lq_mel = librosa.feature.melspectrogram(lq_wav, sr=sr, n_fft=n_fft, hop_length=hop_length, n_mels=128)
+        
+        # turn into dB, normalize
+        lq_mel_db = librosa.power_to_db(lq_mel, ref=np.max)
+        lq_mel_db = (lq_mel_db+80.0)/80.0 
+                
+        # upsample, create mel to apply to output later
+        lq_wav_44100 = librosa.resample(lq_wav, lq_sr, hq_sr)
+        sr = hq_sr
+        n_fft=int(0.075 * sr)
+        hop_length = int(0.25 * n_fft)
+        lq_mel_44100 = librosa.feature.melspectrogram(lq_wav_44100, sr=sr, n_fft=n_fft, hop_length=hop_length, n_mels=512)
+        lq_mel_db_44100 = librosa.power_to_db(lq_mel_44100, ref=np.max)
+        lq_mel_db_44100 = (lq_mel_db_44100+80.0)/80.0 
+            
+        lq_mel_db = torch.Tensor(lq_mel_db).to(self.device)[None,None,:,:]
+    
+        self.lq = lq_mel_db
+        
+        self.test()
+    
+        # get result
+        hq_mel_db = self.output.detach().cpu().squeeze().numpy()
+        
+        # fit into [0,1] range
+        hq_mel_db = hq_mel_db - hq_mel_db.min()
+        hq_mel_db = hq_mel_db / hq_mel_db.max()
+        
+        # add low frequencies to it
+        hq_mel_db[:346, :min(lq_mel_db_44100.shape[1], hq_mel_db.shape[1])] = \
+            lq_mel_db_44100[:346, :min(lq_mel_db_44100.shape[1], hq_mel_db.shape[1])]
+        
+        # get result
+        hq_mel_db = hq_mel_db * 80.0 - 80.0
+                
+        # turn back into power version
+        hq_mel = librosa.db_to_power(hq_mel_db, ref=4000)
+                
+        # turn back into audio
+        hq_wav = librosa.feature.inverse.mel_to_audio(hq_mel, sr=sr, n_fft=n_fft, hop_length=hop_length)       
+        
+        outpath = os.path.join(lq_path, "hq")
+        
+        # save audio
+        sf.write(os.path.join(outpath, lq_filename), hq_wav, hq_sr)
+    
+
 
     def _log_validation_metric_values(self, current_iter, dataset_name, tb_logger):
         log_str = f'Validation {dataset_name}\n'

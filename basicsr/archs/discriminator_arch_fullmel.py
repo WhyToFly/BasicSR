@@ -42,7 +42,8 @@ class VGGStyleDiscriminator128(nn.Module):
         self.conv4_1 = nn.Conv2d(num_feat * 8, num_feat * 8, 4, 2, 1, bias=False)
         self.bn4_1 = nn.BatchNorm2d(num_feat * 8, affine=True)
 
-        self.linear1 = nn.Linear(num_feat * 8 * 4 * 4, 100)
+        #self.linear1 = nn.Linear(num_feat * 8 * 4 * 4, 100)
+        self.linear1 = nn.Linear(num_feat * 8 * 4 * 2, 100)
         self.linear2 = nn.Linear(100, 1)
 
         # activation function

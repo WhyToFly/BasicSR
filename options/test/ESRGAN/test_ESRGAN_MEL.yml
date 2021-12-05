@@ -1,0 +1,50 @@
+name: ESRGAN_SRx4_DF2KOST_official
+model_type: ESRGANModel
+scale: 1
+num_gpu: 1  # set num_gpu: 0 for cpu mode
+manual_seed: 0
+
+datasets:
+  test_1:  # the 1st test dataset
+    name: Test_Data
+    type: PairedMelDataset
+    dataroot_lq: datasets/multispeaker/test/mel/11025Hz
+    dataroot_gt: datasets/multispeaker/test/mel/44100Hz
+    io_backend:
+      type: disk
+  test_2:  # the 2nd test dataset
+    name: Kraehen_Data
+    type: PairedMelDataset
+    dataroot_lq: datasets/kr/mel/11025Hz
+    dataroot_gt: datasets/kr/mel/44100Hz
+    io_backend:
+      type: disk
+
+# network structures
+network_g:
+  type: RRDBNet
+  num_in_ch: 1
+  num_out_ch: 1
+  num_feat: 64
+  num_block: 16
+  num_grow_ch: 32
+
+# path
+path:
+  pretrain_network_g: experiments/052_ESRGAN_x4_f64b23_DIV2K_400k_B16G1_051pretrain_wandb/models/net_g_206000.pth
+  strict_load_g: true
+
+# validation settings
+val:
+  save_img: true
+  suffix: ~  # add suffix to saved images, if None, use exp name
+
+  metrics:
+    psnr: # metric name, can be arbitrary
+      type: calculate_psnr
+      crop_border: 4
+      test_y_channel: false
+    ssim:
+      type: calculate_ssim
+      crop_border: 4
+      test_y_channel: false

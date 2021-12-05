@@ -199,6 +199,12 @@ def pixel_unshuffle(x, scale):
     """
     b, c, hh, hw = x.size()
     out_channel = c * (scale**2)
+    
+    if not ((hh % scale == 0) and (hw % scale == 0)):
+        print("hh " + str(hh))
+        print("hw " + str(hw))
+        print("scale " + str(scale))
+    
     assert hh % scale == 0 and hw % scale == 0
     h = hh // scale
     w = hw // scale

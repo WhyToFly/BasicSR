@@ -84,7 +84,7 @@ class RRDBNet(nn.Module):
         num_grow_ch (int): Channels for each growth. Default: 32.
     """
 
-    def __init__(self, num_in_ch, num_out_ch, scale=4, num_feat=64, num_block=23, num_grow_ch=32):
+    def __init__(self, num_in_ch, num_out_ch, scale=1, num_feat=64, num_block=23, num_grow_ch=32):
         super(RRDBNet, self).__init__()
         self.scale = scale
         if scale == 2:
@@ -96,6 +96,13 @@ class RRDBNet(nn.Module):
         self.conv_body = nn.Conv2d(num_feat, num_feat, 3, 1, 1)
         # upsample
         self.conv_up1 = nn.Conv2d(num_feat, num_feat, 3, 1, 1)
+        
+        
+        # do striding in one direction to half resolution
+        #self.conv_up1 = nn.Conv2d(num_feat, num_feat, 3, [2,1], 1)
+        
+        
+        
         self.conv_up2 = nn.Conv2d(num_feat, num_feat, 3, 1, 1)
         self.conv_hr = nn.Conv2d(num_feat, num_feat, 3, 1, 1)
         self.conv_last = nn.Conv2d(num_feat, num_out_ch, 3, 1, 1)
@@ -113,7 +120,8 @@ class RRDBNet(nn.Module):
         body_feat = self.conv_body(self.body(feat))
         feat = feat + body_feat
         # upsample
-        feat = self.lrelu(self.conv_up1(F.interpolate(feat, scale_factor=[2, 1], mode='nearest')))
-        feat = self.lrelu(self.conv_up2(F.interpolate(feat, scale_factor=[2, 1], mode='nearest')))
+        feat = self.lrelu(self.conv_up1(F.interpolate(feat, scale_factor=2, mode='nearest')))
+        feat = self.lrelu(self.conv_up2(F.interpolate(feat, scale_factor=2, mode='nearest')))
         out = self.conv_last(self.lrelu(self.conv_hr(feat)))
+                
         return out

@@ -58,32 +58,36 @@ def paired_random_crop(img_gts, img_lqs, gt_patch_size, scale, gt_path=None):
     else:
         h_lq, w_lq = img_lqs[0].shape[0:2]
         h_gt, w_gt = img_gts[0].shape[0:2]
-    lq_patch_size = gt_patch_size // scale
+        
+    #lq_patch_size = gt_patch_size // scale
+    lq_patch_size = 512#344
+    gt_patch_size = 512#172
+    patch_width = 64
 
-    if h_gt != h_lq * scale:
-        raise ValueError(f'Scale mismatches. GT ({h_gt}, {w_gt}) is not {scale}x ',
-                         f'multiplication of LQ ({h_lq}, {w_lq}).')
-    if h_lq < lq_patch_size or w_lq < lq_patch_size:
+    #if h_gt != h_lq * scale:
+    #    raise ValueError(f'Scale mismatches. GT ({h_gt}, {w_gt}) is not {scale}x ',
+    #                     f'multiplication of LQ ({h_lq}, {w_lq}).')
+    if h_lq < lq_patch_size or w_lq < patch_width:
         raise ValueError(f'LQ ({h_lq}, {w_lq}) is smaller than patch size '
-                         f'({lq_patch_size}, {lq_patch_size}). '
+                         f'({lq_patch_size}, {patch_width}). '
                          f'Please remove {gt_path}.')
 
     # randomly choose top and left coordinates for lq patch
     top = random.randint(0, h_lq - lq_patch_size)
-    left = random.randint(0, w_lq - lq_patch_size)
+    left = random.randint(0, w_lq - patch_width)
 
     # crop lq patch
     if input_type == 'Tensor':
-        img_lqs = [v[:, :, top:top + lq_patch_size, left:left + lq_patch_size] for v in img_lqs]
+        img_lqs = [v[:, :, top:top + lq_patch_size, left:left + patch_width] for v in img_lqs]
     else:
-        img_lqs = [v[top:top + lq_patch_size, left:left + lq_patch_size, ...] for v in img_lqs]
+        img_lqs = [v[top:top + lq_patch_size, left:left + patch_width, ...] for v in img_lqs]
 
     # crop corresponding gt patch
     top_gt, left_gt = int(top * scale), int(left)
     if input_type == 'Tensor':
-        img_gts = [v[:, :, top_gt:top_gt + gt_patch_size, left_gt:left_gt + gt_patch_size//scale] for v in img_gts]
+        img_gts = [v[:, :, top_gt:top_gt + gt_patch_size, left_gt:left_gt + patch_width] for v in img_gts]
     else:
-        img_gts = [v[top_gt:top_gt + gt_patch_size, left_gt:left_gt + gt_patch_size//scale, ...] for v in img_gts]
+        img_gts = [v[top_gt:top_gt + gt_patch_size, left_gt:left_gt + patch_width, ...] for v in img_gts]
     if len(img_gts) == 1:
         img_gts = img_gts[0]
     if len(img_lqs) == 1:
